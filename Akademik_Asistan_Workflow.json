@@ -1,0 +1,249 @@
+{
+  "name": "Akademik_Asistan_Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        160,
+        0
+      ],
+      "id": "6c86937d-a366-4dc4-8b70-9c5d50a024bd",
+      "name": "telegram_botu",
+      "webhookId": "7e649b18-3e00-4972-a7d4-17bfe41d9c25",
+      "credentials": {
+        "telegramApi": {
+          "id": "yrj1Lc7JpZib9blr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('telegram_botu').item.json.message.from.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "16a0b068-ed21-4c76-9715-fddc9d0b377e",
+      "name": "Send a text message",
+      "webhookId": "d16b97e7-ba30-4b94-8aa6-76e43311810a",
+      "credentials": {
+        "telegramApi": {
+          "id": "yrj1Lc7JpZib9blr",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        352,
+        208
+      ],
+      "id": "519116c3-bce6-4e74-aa63-6d5776805fb0",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "JJJZfQNjF2pJeFYJ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('telegram_botu').item.json.message.text }}",
+        "options": {
+          "systemMessage": "=Sen; titiz, analitik ve akademik yazım kurallarına (APA 7) hakim profesyonel bir araştırma asistanısın.\n\nELİNDEKİ ARAÇLAR:\n- \"internet_search\": Bu aracı güncel bilgi, akademik makale (DergiPark vb.) ve haber taramak için kullan.\n\nGÖREV AKIŞI:\n1.  **NİYET ANALİZİ:**\n    * Kullanıcı \"Selam\", \"Naber\" derse -> ARAÇ KULLANMA. Sohbet et.\n    * Kullanıcı bilgi isterse -> \"internet_search\" aracını MUTLAKA kullan.\n\n2.  **RAPORLAMA (Araçtan gelen veriyi işleme):**\n    * Araçtan dönen sonuçları oku ve akademik bir rapor yaz.\n    * **Kanıta Dayalı Yaz:** \"Bence\" deme, \"Verilere göre\" de.\n    * **Atıf Yap:** Cümle sonlarına (Yazar Soyadı, Yıl) ekle. (n.d.) kullanma.\n\n3.  **KAYNAKÇA:**\n    * Raporun sonuna araçtan gelen linkleri kullanarak \"📚 KAYNAKÇA\" listesi yap.\n    * Linki olmayan bilgiyi kullanma.\n\n4.  **FORMAT:**\n    * Düz metin. Başlıklar BÜYÜK HARF.\n    * Maksimum 3000 karakter.\n\nLütfen otonom bir araştırmacı gibi davran; gerektiğinde aracı kullan ve akademik çıktı üret."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ebeb89f6-2476-48ae-bf97-e970641758b7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('telegram_botu').item.json.message.chat.id }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        208
+      ],
+      "id": "b16a0a94-d779-4261-b404-b8b1fc5251fd",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "İnternetten güncel bilgi, akademik makale veya haber aramak için bu aracı kullan. Input olarak aranacak kelimeleri gir.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"BURAYA_KENDI_TAVILY_KEYINIZI_YAZIN\",\n  \"query\": \"{{ $fromAI('query') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": true,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        240
+      ],
+      "id": "9ac19dfe-fcbf-4d55-98ad-7f48ad750fb0",
+      "name": "internet_search"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sen çok dilli, entelektüel ve titiz bir akademik editörsün.\nGörevin, aşağıdaki taslak raporu akademik standartlara göre düzenlemektir.\n\nGİRDİ METİN:\n\"{{ $('AI Agent').item.json.output }}\"\n\nEDİTÖRLÜK KURALLARI:\n\n1.  **DİL VE ÜSLUP:**\n    * Metnin ana dili Türkçe olsun.\n    * ANCAK; metin içinde geçen **Latince** (örn: *et al.*, *vice versa*), **İngilizce Teknik Terimler** (örn: *Framework*, *Big Data*) veya **Bilimsel İsimler** varsa bunları ASLA zorla Türkçeye çevirme. Olduğu gibi bırak. Akademik zenginliği koru.\n\n2.  **TEKNİK DÜZELTME:**\n    * \"(n.d.)\" veya \"(t.y.)\" gibi tarih hatalarını temizle.\n    * Cümle düşüklüklerini toparla.\n\n4.  **ÇIKTI:**\n    * Giriş cümlesi kurma (\"İşte düzelttim\" deme).\n    * Sadece ve sadece raporu ver.\n\nLütfen terimsel zenginliği koruyarak raporu revize et.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        736,
+        0
+      ],
+      "id": "d1756856-7a69-43a9-9041-6fcee5999edd",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        736,
+        160
+      ],
+      "id": "bc6b3739-3047-4358-a167-a2ba04934674",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "E0CR9GLotVOin2My",
+          "name": "Groq account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "telegram_botu": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "internet_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "215a3fea-2b2a-4d0b-b4da-da2a34fb1973",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dba3062c4833a9ec253652ad6ab90b629cc1e8f900474e1955abb64bcf1b4fac"
+  },
+  "id": "nzdVLlFCWsu0LVfk",
+  "tags": []
+}
